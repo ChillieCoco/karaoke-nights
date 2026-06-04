@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎤 Elite Singing Crew – Karaoke Nights</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --pink:#ff4d8d;--pink-light:#fff0f5;--dark:#1a1a2e;
+  --border:#f0e0e8;--text:#2d2d2d;--muted:#888;--green:#00c48c;--amber:#ffb800;
+}
+body{font-family:'Inter',sans-serif;background:#fdf6f9;color:var(--text);min-height:100vh}
+h1,h2,h3{font-family:'Syne',sans-serif}
+
+.header{background:var(--dark);color:white;padding:1.5rem 1.25rem 1rem;text-align:center;position:relative;overflow:hidden}
+.header::before{content:'🎤 🎵 🎶 🎤 🎵 🎶 🎤 🎵 🎶';position:absolute;top:6px;left:0;right:0;font-size:18px;opacity:0.12;letter-spacing:6px;white-space:nowrap}
+.header h1{font-size:1.7rem;font-weight:800}
+.header h1 span{color:var(--pink)}
+.header p{margin-top:4px;opacity:0.6;font-size:0.85rem}
+
+/* MONTH SELECTOR */
+.month-bar{background:var(--dark);border-top:1px solid rgba(255,255,255,0.08);padding:0.75rem 1rem;display:flex;align-items:center;justify-content:center;gap:10px}
+.month-arrow{background:rgba(255,255,255,0.1);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
+.month-arrow:hover{background:var(--pink)}
+.month-label{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:white;min-width:160px;text-align:center}
+.month-badge{display:inline-block;background:var(--pink);color:white;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:1px;margin-left:8px;vertical-align:middle}
+
+.tabs{display:flex;background:white;border-bottom:1.5px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:100}
+.tab{flex:1;min-width:70px;padding:13px 6px;text-align:center;font-family:'Syne',sans-serif;font-weight:600;font-size:0.72rem;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap}
+.tab.active{color:var(--pink);border-bottom-color:var(--pink)}
+.tab:hover{color:var(--pink);background:#fff8fb}
+
+.page{display:none;padding:1.1rem;max-width:720px;margin:0 auto}
+.page.active{display:block}
+
+.card{background:white;border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:0.9rem}
+.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:7px;color:var(--dark)}
+
+label{display:block;font-size:0.78rem;font-weight:500;color:var(--muted);margin-bottom:3px}
+input[type=text],textarea,select{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:9px;font-family:'Inter',sans-serif;font-size:0.88rem;outline:none;transition:border 0.2s;background:white;color:var(--text)}
+input[type=text]:focus,textarea:focus{border-color:var(--pink)}
+
+/* SINGER NAME CARD */
+.singer-card{background:linear-gradient(135deg,#fff0f5,#fff8fb);border:2px solid var(--pink);border-radius:14px;padding:1.1rem;margin-bottom:0.9rem;position:relative;overflow:hidden}
+.singer-card::after{content:'🎤';position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:2.5rem;opacity:0.15}
+.singer-card h2{font-family:'Syne',sans-serif;font-weight:800;font-size:0.95rem;color:var(--pink);margin-bottom:4px}
+.singer-card p{font-size:0.75rem;color:var(--muted);margin-bottom:8px}
+
+/* DATES SCROLL */
+.dates-scroll-wrap{overflow-x:auto;padding-bottom:6px;margin:0 -4px}
+.dates-scroll{display:flex;gap:8px;padding:4px;min-width:max-content}
+.date-card{border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;transition:all 0.2s;background:white;min-width:130px;flex-shrink:0}
+.date-card:hover{border-color:var(--pink);background:var(--pink-light)}
+.date-card.selected{border-color:var(--pink);background:var(--pink-light)}
+.date-card.weekday{border-color:#ffe082}
+.date-card.weekday:hover,.date-card.weekday.selected{border-color:var(--pink);background:var(--pink-light)}
+.date-card.suggested{border-style:dashed;border-color:var(--amber)}
+.date-card.suggested.selected{border-style:solid;border-color:var(--pink);background:var(--pink-light)}
+.date-card .dl{font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;color:var(--dark)}
+.date-card .ds{font-size:0.68rem;color:var(--muted);margin-top:1px}
+.dtype{display:inline-block;font-size:0.6rem;font-weight:600;padding:2px 6px;border-radius:5px;margin-top:4px}
+.dt-we{background:#f0fff4;color:#2e7d32}
+.dt-wd{background:#fff3e0;color:#e65100}
+.dt-sg{background:#fff8e1;color:#f57f17}
+.slot-btns{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.slot-btn{padding:3px 7px;border-radius:20px;border:1.5px solid var(--border);font-size:0.65rem;cursor:pointer;background:white;transition:all 0.2s;white-space:nowrap}
+.slot-btn.selected{background:var(--pink);color:white;border-color:var(--pink)}
+.slot-btn:hover{border-color:var(--pink)}
+
+/* SUGGEST DATE */
+.suggest-box{border-radius:10px;padding:0.9rem;margin-top:0.6rem}
+.suggest-box.amber{background:#fffbf0;border:1.5px dashed var(--amber)}
+.suggest-box.purple{background:#f9f0ff;border:1.5px dashed #ce93d8}
+.suggest-box h3{font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;margin-bottom:6px}
+.suggest-box.amber h3{color:#e65100}
+.suggest-box.purple h3{color:#6a1b9a}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+
+/* SESSIONS */
+.session-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:6px}
+.session-card{border:1.5px solid var(--border);border-radius:9px;padding:9px 7px;cursor:pointer;transition:all 0.2s;background:white;text-align:center}
+.session-card:hover,.session-card.selected{border-color:var(--pink);background:var(--pink-light)}
+.session-card .se{font-size:1.2rem;margin-bottom:3px}
+.session-card .st{font-family:'Syne',sans-serif;font-weight:700;font-size:0.65rem;color:var(--dark)}
+.session-card .sd{font-size:0.58rem;color:var(--muted);margin-top:1px}
+
+/* VENUE FILTERS */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem}
+.chip{padding:5px 11px;border-radius:20px;border:1.5px solid var(--border);font-size:0.7rem;cursor:pointer;background:white;font-weight:500;transition:all 0.2s}
+.chip.active,.chip:hover{background:var(--pink);color:white;border-color:var(--pink)}
+
+.map-box{border-radius:10px;overflow:hidden;border:1px solid var(--border);height:260px;margin-bottom:0.75rem}
+.map-box iframe{width:100%;height:100%;border:none;display:block}
+
+.venue-list-scroll{max-height:400px;overflow-y:auto;padding-right:2px}
+.venue-list-scroll::-webkit-scrollbar{width:3px}
+.venue-list-scroll::-webkit-scrollbar-thumb{background:var(--pink);border-radius:3px}
+
+.venue-card{border:1.5px solid var(--border);border-radius:12px;padding:0.9rem;margin-bottom:8px;cursor:pointer;transition:all 0.2s;background:white;position:relative}
+.venue-card:hover{border-color:var(--pink);box-shadow:0 3px 15px rgba(255,77,141,0.1)}
+.venue-card.voted{border-color:var(--pink);background:var(--pink-light)}
+.vnum{position:absolute;top:9px;left:9px;width:20px;height:20px;background:var(--dark);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700}
+.vcheck{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;font-size:0.62rem;transition:all 0.2s}
+.venue-card.voted .vcheck{background:var(--pink);border-color:var(--pink);color:white}
+.vname{font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;padding-left:28px;color:var(--dark)}
+.vmeta{font-size:0.72rem;color:var(--muted);margin-top:2px}
+.vbadges{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.badge{display:inline-block;font-size:0.62rem;font-weight:600;padding:2px 7px;border-radius:5px}
+.badge-price{background:#fff3e0;color:#bf360c}
+.badge-rating{background:#f0fff4;color:#1b5e20}
+.badge-type{background:#f3e5f5;color:#4a148c}
+.badge-pp{background:#e3f2fd;color:#0d47a1}
+.vnotes{font-size:0.7rem;color:#555;margin-top:5px;line-height:1.45}
+.vlinks{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.vlink{font-size:0.68rem;color:var(--pink);text-decoration:none;padding:2px 9px;border:1px solid var(--pink);border-radius:20px;transition:all 0.2s}
+.vlink:hover{background:var(--pink);color:white}
+
+/* SONGS */
+.song-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.song-item:last-child{border-bottom:none}
+.snum{font-family:'Syne',sans-serif;font-weight:700;color:var(--pink);font-size:0.8rem;min-width:20px}
+.stxt{font-size:0.85rem;flex:1}
+.swho{font-size:0.68rem;color:var(--muted)}
+
+/* RESULTS */
+.public-banner{background:var(--pink-light);border:2px solid var(--pink);border-radius:10px;padding:9px 14px;margin-bottom:0.9rem;font-size:0.78rem;color:var(--pink);font-weight:600;text-align:center}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0.9rem}
+.stat{background:white;border:1px solid var(--border);border-radius:10px;padding:0.75rem;text-align:center}
+.stat-num{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--pink)}
+.stat-lbl{font-size:0.65rem;color:var(--muted);margin-top:2px}
+.bar-row{margin-bottom:8px}
+.bar-label{display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:3px}
+.bar-label span:last-child{color:var(--pink);font-weight:600}
+.bar-bg{height:7px;background:#f5e0ea;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;background:var(--pink);border-radius:4px;transition:width 0.6s ease}
+.bar-fill-a{background:var(--amber)}
+.resp-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.85rem}
+.resp-row:last-child{border-bottom:none}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--pink);color:white;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:0.7rem;flex-shrink:0}
+
+/* BUTTONS */
+.btn{display:block;width:100%;padding:12px;background:var(--pink);color:white;border:none;border-radius:11px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.2s;margin-top:0.7rem}
+.btn:hover{background:#e6006e;transform:translateY(-1px)}
+.btn-outline{background:white;color:var(--pink);border:2px solid var(--pink)}
+.btn-outline:hover{background:var(--pink-light);transform:none}
+.btn-amber{background:var(--amber);color:white}
+.btn-amber:hover{background:#e0a000;transform:none}
+.btn-sm{padding:6px 12px;width:auto;font-size:0.75rem;border-radius:7px;display:inline-block;margin-top:0}
+.btn-purple{background:#9c27b0;color:white}
+.btn-purple:hover{background:#7b1fa2;transform:none}
+
+.alert{padding:9px 13px;border-radius:9px;font-size:0.8rem;margin-bottom:0.7rem}
+.alert-success{background:#f0fff4;border:1px solid #b7ebc8;color:#2e7d32}
+.alert-error{background:#fff5f5;border:1px solid #fcc;color:#c62828}
+.alert-info{background:#fff8e1;border:1px solid #ffe082;color:#e65100}
+
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.flex-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.divider{height:1px;background:var(--border);margin:0.7rem 0}
+.hidden{display:none}
+.mt-1{margin-top:0.5rem}
+.suggest-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Elite Singing Crew<br><span>Karaoke Nights 🎤</span></h1>
+  <p>Pick your dates · Vote for venues · Add your songs</p>
+</div>
+
+<!-- MONTH SELECTOR -->
+<div class="month-bar">
+  <button class="month-arrow" onclick="changeMonth(-1)">&#8592;</button>
+  <div class="month-label" id="month-label">
+    <span id="month-text">June 2026</span>
+    <span class="month-badge" id="current-badge" style="display:none">THIS MONTH</span>
+  </div>
+  <button class="month-arrow" onclick="changeMonth(1)">&#8594;</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('respond')">📋 RSVP</div>
+  <div class="tab" onclick="showTab('venues')">📍 Venues</div>
+  <div class="tab" onclick="showTab('songs')">🎵 Songs</div>
+  <div class="tab" onclick="showTab('results')">📊 Results</div>
+</div>
+
+<!-- RSVP PAGE -->
+<div id="tab-respond" class="page active">
+
+  <div class="singer-card">
+    <h2>🎤 Singer:</h2>
+    <p>Enter your name as it'll appear for the group — be creative, use your stage name!</p>
+    <input type="text" id="member-name" placeholder="e.g. Coco the Crooner, Sarah Superstar..." oninput="saveName()">
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Which days work for you?</div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">Scroll right → weekends, Thursdays & Fridays for <span id="month-hint">this month</span>. Only future dates shown!</p>
+    <div class="dates-scroll-wrap">
+      <div class="dates-scroll" id="dates-scroll"></div>
+    </div>
+    <div class="suggest-box amber" style="margin-top:8px">
+      <h3>📆 Suggest a different date</h3>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:7px">Can't make any of the above? Suggest one — it appears for everyone!</p>
+      <div class="two-col">
+        <div><label>Date</label><input type="text" id="suggest-date-input" placeholder="e.g. Mon 15 Jun"></div>
+        <div><label>Why this date?</label><input type="text" id="suggest-date-reason" placeholder="e.g. Bank holiday!"></div>
+      </div>
+      <button class="btn btn-amber btn-sm mt-1" onclick="suggestDate()">+ Add for everyone</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⏰ Which session times work?</div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:4px">Pick all that apply!</p>
+    <div class="session-grid" id="session-grid"></div>
+    <div class="suggest-box purple" style="margin-top:8px">
+      <h3>🕐 Suggest a different session</h3>
+      <div class="flex-row mt-1">
+        <input type="text" id="suggest-session-input" placeholder="e.g. Sunday brunch 12–3pm" style="flex:1;min-width:160px">
+        <button class="btn btn-purple btn-sm" onclick="suggestSession()">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="submit-section" class="hidden">
+    <button class="btn" onclick="submitResponse()" id="submit-btn">✨ Submit my availability</button>
+  </div>
+  <div id="rsvp-alert"></div>
+</div>
+
+<!-- VENUES PAGE -->
+<div id="tab-venues" class="page">
+  <div class="card">
+    <div class="card-title">🗺️ Karaoke bars in London</div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">Private rooms for 7+ people. Filter by budget, tap to vote!</p>
+    <div class="filter-row">
+      <div class="chip active" onclick="filterVenues('all',this)">🎤 All</div>
+      <div class="chip" onclick="filterVenues('budget',this)">💚 Budget (&lt;£20pp)</div>
+      <div class="chip" onclick="filterVenues('mid',this)">💛 Mid (£20–40pp)</div>
+      <div class="chip" onclick="filterVenues('premium',this)">🔴 Premium (£40pp+)</div>
+      <div class="chip" onclick="filterVenues('korean',this)">🇰🇷 Korean/Asian</div>
+      <div class="chip" onclick="filterVenues('central',this)">🏙️ Central London</div>
+    </div>
+    <div class="map-box">
+      <iframe src="https://www.google.com/maps/embed?pb=!1m16!1m12!1m3!1d19860.0!2d-0.13!3d51.508!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!2m1!1skaraoke+private+room+London!5e0!3m2!1sen!2suk!4v1" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;margin-bottom:8px">📍 Click any pin for full venue details</p>
+    <div class="venue-list-scroll" id="venues-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💡 Suggest a venue</div>
+    <div style="background:#fafafa;border:1.5px dashed var(--border);border-radius:10px;padding:0.9rem">
+      <div class="suggest-row">
+        <div><label>Venue name</label><input type="text" id="vs-name" placeholder="e.g. Sing Sing Soho"></div>
+        <div><label>Area</label><input type="text" id="vs-area" placeholder="e.g. Soho"></div>
+      </div>
+      <div class="suggest-row">
+        <div><label>Price per person</label><input type="text" id="vs-price" placeholder="e.g. £15pp/hr"></div>
+        <div><label>Why you love it</label><input type="text" id="vs-why" placeholder="e.g. Amazing songs!"></div>
+      </div>
+      <div><label>Google Maps link (optional)</label><input type="text" id="vs-link" placeholder="Paste maps.google.com link"></div>
+      <button class="btn btn-outline btn-sm mt-1" onclick="submitVenueSuggestion()">+ Submit suggestion</button>
+    </div>
+  </div>
+  <div id="venue-alert"></div>
+</div>
+
+<!-- SONGS PAGE -->
+<div id="tab-songs" class="page">
+  <div class="card">
+    <div class="card-title">🎵 Song wishlist — <span id="songs-month-label" style="color:var(--pink)">June 2026</span></div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">Songs are per session month — add what you want to sing!</p>
+    <div class="flex-row">
+      <input type="text" id="song-input" placeholder="Song + artist (e.g. Bohemian Rhapsody – Queen)" style="flex:1" onkeydown="if(event.key==='Enter')addSong()">
+      <button class="btn btn-sm" onclick="addSong()" style="width:auto;margin-top:0">+ Add</button>
+    </div>
+    <div class="divider"></div>
+    <div id="songs-list"><p style="color:var(--muted);font-size:0.82rem;text-align:center;padding:1rem">No songs yet — be the first! 🎤</p></div>
+  </div>
+  <div id="song-alert"></div>
+</div>
+
+<!-- RESULTS PAGE -->
+<div id="tab-results" class="page">
+  <div class="public-banner">🎤 Live results for <span id="results-month-label">June 2026</span> — visible to everyone!</div>
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-num" id="stat-responses">–</div><div class="stat-lbl">singers</div></div>
+    <div class="stat"><div class="stat-num" id="stat-songs">–</div><div class="stat-lbl">songs wished</div></div>
+    <div class="stat"><div class="stat-num" id="stat-venues">–</div><div class="stat-lbl">venue votes</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📅 Best dates</div>
+    <div id="date-results"><p style="color:var(--muted);font-size:0.82rem">Loading...</p></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⏰ Best sessions</div>
+    <div id="session-results"><p style="color:var(--muted);font-size:0.82rem">Loading...</p></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📍 Top venues</div>
+    <div id="venue-results"><p style="color:var(--muted);font-size:0.82rem">Loading...</p></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🎵 Song wishlist</div>
+    <div id="songs-results-list"><p style="color:var(--muted);font-size:0.82rem">Loading...</p></div>
+  </div>
+  <div class="card">
+    <div class="card-title">👥 Who's in</div>
+    <div id="responses-list"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">💡 Venue suggestions</div>
+    <div id="suggestions-list"><p style="color:var(--muted);font-size:0.82rem">None yet</p></div>
+  </div>
+  <button class="btn btn-outline" onclick="loadResults()">🔄 Refresh</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jowngrgwovvkhqbtmiwk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_iuxH9ae-ebof_hBBHmeX_Q_wdRNq3yK';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+const BASE_SESSIONS = [
+  {id:'lunch',    emoji:'☀️', time:'Lunch (12–3pm)',       desc:'Relaxed start'},
+  {id:'afternoon',emoji:'🌤️', time:'Afternoon (2–6pm)',    desc:'Classic window'},
+  {id:'evening',  emoji:'🌆', time:'Evening (6–10pm)',     desc:'Most popular'},
+  {id:'late',     emoji:'🌙', time:'Late night (9pm+)',    desc:'Party crew only'},
+  {id:'brunch',   emoji:'🥂', time:'Brunch (11am–2pm)',    desc:'Bottomless style'},
+  {id:'afterwork',emoji:'💼', time:'After work (5–8pm)',   desc:'Thu/Fri special'},
+];
+
+const VENUES = [
+  {id:0,name:'K Club KTV (K王)',       area:'Holborn, Central',      price:'Min spend £488–588', ppEst:30,tier:'mid',    type:'korean', rating:'4.9★',count:1346,
+   notes:'LED neon rooms, Chinese/Korean/English songs, food & cocktails. No room fee if you meet min spend.',
+   maps:'https://maps.google.com/?q=K+Club+Karaoke+51+Parker+St+London',reviews:'https://g.co/kgs/kClubKTV'},
+  {id:1,name:'Moyagi',                  area:'Marylebone, West End',  price:'~£20pp / 1hr 45min', ppEst:25,tier:'mid',    type:'japanese',rating:'4.9★',count:432,
+   notes:'Tokyo-inspired samurai-themed rooms. 150,000 songs. 21+ only. Book weekends weeks ahead.',
+   maps:'https://maps.google.com/?q=Moyagi+5+Cavendish+Place+London',reviews:'https://moyagi.com/london/'},
+  {id:2,name:'BAM Karaoke Box Victoria',area:'Victoria, Central',     price:'From £51.50pp',      ppEst:55,tier:'premium',type:'luxury', rating:'4.8★',count:1197,
+   notes:"Europe's largest luxury karaoke. 22 designed rooms, live music stage, cocktail bar.",
+   maps:'https://maps.google.com/?q=BAM+Karaoke+Box+74+Victoria+St+London',reviews:'https://bamkaraokeboxlondon.com'},
+  {id:3,name:'Lucky Voice Holborn',     area:'Holborn, Central',      price:'From £8pp/hr',       ppEst:16,tier:'budget', type:'classic',rating:'4.4★',count:1298,
+   notes:'Biggest private room karaoke in London. 10 rooms up to 30pp. "Thirsty?" button for in-room drinks.',
+   maps:'https://maps.google.com/?q=Lucky+Voice+84+Chancery+Lane+London',reviews:'https://www.luckyvoice.com/bars/holborn'},
+  {id:4,name:'Karaoke Box Mayfair',     area:'Mayfair, West End',     price:'~£25–35pp',          ppEst:30,tier:'mid',    type:'classic',rating:'4.6★',count:1028,
+   notes:'Stylish Mayfair location, spotless rooms, great sound system, in-room bar service.',
+   maps:'https://maps.google.com/?q=Karaoke+Box+14+Maddox+St+London',reviews:'https://www.karaokebox.co.uk/venues/mayfair'},
+  {id:5,name:'Jihwaja (Korean)',         area:'Kennington, South',     price:'Great value + food', ppEst:20,tier:'budget', type:'korean', rating:'4.6★',count:1363,
+   notes:'Authentic Korean karaoke + BBQ restaurant. Large private rooms, scored performances, fried chicken & soju.',
+   maps:'https://maps.google.com/?q=Jihwaja+353+Kennington+Lane+London',reviews:'https://g.co/kgs/jihwaja'},
+  {id:6,name:'Kpubstar (Korean)',        area:'Brixton, South London', price:'Venue hire available',ppEst:25,tier:'mid',   type:'korean', rating:'4.9★',count:27,
+   notes:'Korean BBQ + karaoke in Brixton. Can hire entire venue. Creative soju cocktails. Very lively!',
+   maps:'https://maps.google.com/?q=Kpubstar+23+Atlantic+Rd+London',reviews:'https://g.co/kgs/kpubstar'},
+  {id:7,name:'HANJAN (Korean)',          area:"New Malden – Koreatown",price:'~£60pp all-in',      ppEst:20,tier:'budget', type:'korean', rating:'4.9★',count:339,
+   notes:"London's Koreatown. Songs in Korean, Chinese, Japanese & English. Cheaper than central London.",
+   maps:'https://maps.google.com/?q=HANJAN+1+High+St+New+Malden',reviews:'https://g.co/kgs/hanjan'},
+  {id:8,name:'Lucky Voice Soho',         area:'Soho, West End',        price:'From £8pp/hr',       ppEst:16,tier:'budget', type:'classic',rating:'4.4★',count:1298,
+   notes:'Intimate Soho location. Great atmosphere, late night bar, DJ weekends.',
+   maps:'https://maps.google.com/?q=Lucky+Voice+52+Poland+St+London',reviews:'https://www.luckyvoice.com/bars/soho'},
+  {id:9,name:'Karaoke Box Smithfield',   area:'Smithfield, City',      price:'~£25–30pp',          ppEst:28,tier:'mid',    type:'classic',rating:'4.1★',count:932,
+   notes:'City of London location, huge song selection, soundproofed booths, vibrant crowd.',
+   maps:'https://maps.google.com/?q=Karaoke+Box+12+Smithfield+St+London',reviews:'https://www.karaokebox.co.uk/venues/smithfield'},
+];
+
+// State
+const today = new Date();
+today.setHours(0,0,0,0);
+let currentYear = today.getFullYear();
+let currentMonth = today.getMonth(); // 0-indexed
+let selectedDates = {};
+let selectedSessions = new Set();
+let selectedVenues = new Set();
+let memberName = localStorage.getItem('kn_name') || '';
+let extraSessions = [];
+let suggestedDatesCache = [];
+
+function monthKey(y, m) { return `${y}-${String(m+1).padStart(2,'0')}`; }
+function currentMonthKey() { return monthKey(currentYear, currentMonth); }
+function isCurrentMonth() { return currentYear === today.getFullYear() && currentMonth === today.getMonth(); }
+
+// Generate all Thu, Fri, Sat, Sun for a given month, only from today onwards
+function generateDates(year, month) {
+  const dates = [];
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    const dow = dt.getDay(); // 0=Sun,4=Thu,5=Fri,6=Sat
+    if (dow === 4 || dow === 5 || dow === 6 || dow === 0) {
+      if (dt >= today) {
+        const dayName = DAY_NAMES[dow];
+        const dateStr = `${dayName.slice(0,3)} ${d} ${MONTH_NAMES[month].slice(0,3)}`;
+        const type = (dow === 6 || dow === 0) ? 'weekend' : 'weekday';
+        const wkNum = Math.ceil(d / 7);
+        dates.push({ date: dateStr, day: dayName, label: type === 'weekend' ? `Weekend ${Math.ceil(d/7)}` : `Week ${Math.ceil(d/7)}`, type, dt });
+      }
+    }
+  }
+  return dates;
+}
+
+// Combine generated + suggested dates
+function getAllDates() {
+  const base = generateDates(currentYear, currentMonth);
+  const mkey = currentMonthKey();
+  const extras = suggestedDatesCache.filter(s => s.monthKey === mkey);
+  return [...base, ...extras.map(e => ({ date: e.date, day: 'Suggested', label: e.reason || 'Suggested by crew', type: 'suggested' }))];
+}
+
+function updateMonthUI() {
+  const label = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+  document.getElementById('month-text').textContent = label;
+  document.getElementById('current-badge').style.display = isCurrentMonth() ? 'inline-block' : 'none';
+  document.getElementById('month-hint').textContent = label;
+  document.getElementById('songs-month-label').textContent = label;
+  document.getElementById('results-month-label').textContent = label;
+  // Reset selections when month changes
+  selectedDates = {};
+  selectedSessions = new Set();
+  renderDates();
+  renderSessions();
+  loadSongs();
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  // Don't go before current month
+  const now = new Date();
+  if (currentYear < now.getFullYear() || (currentYear === now.getFullYear() && currentMonth < now.getMonth())) {
+    currentMonth = now.getMonth(); currentYear = now.getFullYear();
+  }
+  updateMonthUI();
+  checkSubmitSection();
+}
+
+// ---- DATES ----
+function renderDates() {
+  const scroll = document.getElementById('dates-scroll');
+  const dates = getAllDates();
+  if (!dates.length) {
+    scroll.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;padding:8px">No upcoming dates this month — try next month!</p>';
+    return;
+  }
+  scroll.innerHTML = dates.map(d => {
+    const key = d.date.replace(/ /g,'_');
+    const typeClass = d.type==='weekend'?'dt-we':d.type==='suggested'?'dt-sg':'dt-wd';
+    const typeLabel = d.type==='weekend'?'Weekend':d.type==='suggested'?'✨ Suggested':d.day;
+    const isSel = !!selectedDates[d.date];
+    return `<div class="date-card ${d.type} ${isSel?'selected':''}" id="dc-${key}" onclick="toggleDate('${d.date}')">
+      <div class="dl">${d.date}</div>
+      <div class="ds">${d.label}</div>
+      <span class="dtype ${typeClass}">${typeLabel}</span>
+      <div class="slot-btns" id="slots-${key}">
+        <span style="font-size:0.65rem;color:var(--muted)">tap to select</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Re-render slots for already-selected dates
+  Object.keys(selectedDates).forEach(date => {
+    const key = date.replace(/ /g,'_');
+    const el = document.getElementById('slots-'+key);
+    if (el) renderSlots(date, key);
+  });
+}
+
+function toggleDate(date) {
+  const key = date.replace(/ /g,'_');
+  const card = document.getElementById('dc-'+key);
+  if (!card) return;
+  if (selectedDates[date]) {
+    delete selectedDates[date];
+    card.classList.remove('selected');
+    document.getElementById('slots-'+key).innerHTML = '<span style="font-size:0.65rem;color:var(--muted)">tap to select</span>';
+  } else {
+    selectedDates[date] = [];
+    card.classList.add('selected');
+    renderSlots(date, key);
+  }
+  checkSubmitSection();
+}
+
+function renderSlots(date, key) {
+  const el = document.getElementById('slots-'+key);
+  if (!el) return;
+  const sessions = [...BASE_SESSIONS, ...extraSessions];
+  el.innerHTML = sessions.map(s => {
+    const isSel = (selectedDates[date]||[]).includes(s.time);
+    return `<button class="slot-btn ${isSel?'selected':''}" id="slot-${key}-${s.id}"
+      onclick="event.stopPropagation();toggleSlot('${date}','${s.time}','${s.id}','${key}')">
+      ${s.emoji} ${s.time.split(' ')[0]}
+    </button>`;
+  }).join('');
+}
+
+function toggleSlot(date, slotTime, slotId, key) {
+  const btn = document.getElementById(`slot-${key}-${slotId}`);
+  if (!selectedDates[date]) selectedDates[date] = [];
+  const idx = selectedDates[date].indexOf(slotTime);
+  if (idx > -1) { selectedDates[date].splice(idx,1); btn && btn.classList.remove('selected'); }
+  else { selectedDates[date].push(slotTime); btn && btn.classList.add('selected'); }
+  checkSubmitSection();
+}
+
+async function suggestDate() {
+  if (!memberName) { showAlert('rsvp-alert','Enter your singer name first!','error'); return; }
+  const dateVal = document.getElementById('suggest-date-input').value.trim();
+  const reason  = document.getElementById('suggest-date-reason').value.trim();
+  if (!dateVal) { showAlert('rsvp-alert','Please enter a date!','error'); return; }
+  try {
+    const rid = await getOrCreateResponse();
+    const mkey = currentMonthKey();
+    await db.from('venue_suggestions').insert({ response_id: rid, suggestion: `DATE:${mkey}:${dateVal}|${reason||'Suggested by '+memberName}` });
+    suggestedDatesCache.push({ monthKey: mkey, date: dateVal, reason: reason||'Suggested by '+memberName });
+    renderDates();
+    document.getElementById('suggest-date-input').value = '';
+    document.getElementById('suggest-date-reason').value = '';
+    showAlert('rsvp-alert','✅ Date added for everyone!','success');
+  } catch(err) { showAlert('rsvp-alert','Error: '+err.message,'error'); }
+}
+
+// ---- SESSIONS ----
+function renderSessions() {
+  const sessions = [...BASE_SESSIONS, ...extraSessions];
+  const grid = document.getElementById('session-grid');
+  grid.innerHTML = sessions.map(s => `
+    <div class="session-card ${selectedSessions.has(s.id)?'selected':''}" id="sess-${s.id}" onclick="toggleSession('${s.id}')">
+      <div class="se">${s.emoji}</div>
+      <div class="st">${s.time}</div>
+      <div class="sd">${s.desc}</div>
+    </div>`).join('');
+}
+
+function toggleSession(id) {
+  const card = document.getElementById('sess-'+id);
+  if (selectedSessions.has(id)) { selectedSessions.delete(id); card.classList.remove('selected'); }
+  else { selectedSessions.add(id); card.classList.add('selected'); }
+}
+
+function suggestSession() {
+  const input = document.getElementById('suggest-session-input');
+  const val = input.value.trim();
+  if (!val) return;
+  const newId = 'custom_'+Date.now();
+  extraSessions.push({ id: newId, emoji:'⭐', time: val, desc:'Suggested' });
+  input.value = '';
+  renderSessions();
+  showAlert('rsvp-alert','✅ Session added!','success');
+}
+
+// ---- SUBMIT ----
+function checkSubmitSection() {
+  const hasName = memberName.length > 0;
+  const hasDates = Object.keys(selectedDates).length > 0;
+  document.getElementById('submit-section').classList.toggle('hidden', !(hasName && hasDates));
+}
+
+async function getOrCreateResponse() {
+  const { data } = await db.from('responses').select('id').eq('name', memberName).order('created_at',{ascending:false}).limit(1);
+  if (data && data.length > 0) return data[0].id;
+  const { data: nr } = await db.from('responses').insert({ name: memberName }).select().single();
+  return nr.id;
+}
+
+function saveName() {
+  memberName = document.getElementById('member-name').value.trim();
+  localStorage.setItem('kn_name', memberName);
+  checkSubmitSection();
+}
+
+async function submitResponse() {
+  const btn = document.getElementById('submit-btn');
+  if (!memberName) { showAlert('rsvp-alert','Please enter your singer name!','error'); return; }
+  if (!Object.keys(selectedDates).length) { showAlert('rsvp-alert','Please select at least one date!','error'); return; }
+  btn.innerHTML = '<span class="spinner"></span>Saving...'; btn.disabled = true;
+  try {
+    const { data: resp, error: e1 } = await db.from('responses').insert({ name: memberName }).select().single();
+    if (e1) throw e1;
+    const mkey = currentMonthKey();
+
+    const dateRows = [];
+    for (const [date, slots] of Object.entries(selectedDates)) {
+      const s = slots.length > 0 ? slots : ['Any time'];
+      s.forEach(sl => dateRows.push({ response_id: resp.id, date: `${mkey}::${date}`, slot: sl }));
+    }
+    if (dateRows.length) await db.from('date_votes').insert(dateRows);
+
+    if (selectedSessions.size > 0) {
+      const allSess = [...BASE_SESSIONS, ...extraSessions];
+      const sessRows = [...selectedSessions].map(id => {
+        const s = allSess.find(x => x.id === id);
+        return { response_id: resp.id, date: `${mkey}::SESSION`, slot: s ? s.time : id };
+      });
+      await db.from('date_votes').insert(sessRows);
+    }
+
+    if (selectedVenues.size > 0) {
+      const vRows = [...selectedVenues].map(v => ({ response_id: resp.id, venue_name: v }));
+      await db.from('venue_votes').insert(vRows);
+    }
+
+    showAlert('rsvp-alert',"🎤 You're on the setlist! See you on the night!",'success');
+    btn.innerHTML = '✅ Response saved!'; btn.style.background = 'var(--green)';
+  } catch(err) {
+    showAlert('rsvp-alert','Something went wrong: '+err.message,'error');
+    btn.innerHTML = '✨ Try again'; btn.disabled = false;
+  }
+}
+
+// ---- VENUES ----
+function filterVenues(filter, el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderVenues(filter);
+}
+
+function renderVenues(filter) {
+  const list = document.getElementById('venues-list');
+  const filtered = VENUES.filter(v => {
+    if (filter === 'all') return true;
+    if (filter === 'budget') return v.tier === 'budget';
+    if (filter === 'mid') return v.tier === 'mid';
+    if (filter === 'premium') return v.tier === 'premium';
+    if (filter === 'korean') return v.type === 'korean' || v.type === 'japanese';
+    if (filter === 'central') return v.area.includes('Central') || v.area.includes('West End') || v.area.includes('Soho');
+    return true;
+  });
+  list.innerHTML = filtered.map((v,i) => `
+    <div class="venue-card ${selectedVenues.has(v.name)?'voted':''}" id="venue-${v.id}" onclick="toggleVenue(${v.id},'${v.name.replace(/'/g,"\\'")}')">
+      <div class="vnum">${i+1}</div>
+      <div class="vcheck">✓</div>
+      <div class="vname">${v.name}</div>
+      <div class="vmeta">📍 ${v.area}</div>
+      <div class="vbadges">
+        <span class="badge badge-price">💷 ${v.price}</span>
+        <span class="badge badge-rating">${v.rating} (${v.count.toLocaleString()})</span>
+        <span class="badge badge-type">${v.type}</span>
+        <span class="badge badge-pp">~£${v.ppEst}pp est.</span>
+      </div>
+      <div class="vnotes">${v.notes}</div>
+      <div class="vlinks">
+        <a class="vlink" href="${v.maps}" target="_blank" onclick="event.stopPropagation()">🗺️ Google Maps</a>
+        <a class="vlink" href="${v.reviews}" target="_blank" onclick="event.stopPropagation()">⭐ Reviews</a>
+      </div>
+    </div>`).join('');
+}
+
+function toggleVenue(i, name) {
+  if (!memberName) { showAlert('venue-alert','Enter your singer name in the RSVP tab first!','error'); return; }
+  const card = document.getElementById('venue-'+i);
+  if (selectedVenues.has(name)) { selectedVenues.delete(name); card.classList.remove('voted'); }
+  else { selectedVenues.add(name); card.classList.add('voted'); }
+}
+
+async function submitVenueSuggestion() {
+  if (!memberName) { showAlert('venue-alert','Enter your singer name in the RSVP tab first!','error'); return; }
+  const vname = document.getElementById('vs-name').value.trim();
+  if (!vname) { showAlert('venue-alert','Please enter a venue name!','error'); return; }
+  const parts = [
+    vname,
+    document.getElementById('vs-area').value.trim() && '📍'+document.getElementById('vs-area').value.trim(),
+    document.getElementById('vs-price').value.trim() && '💷'+document.getElementById('vs-price').value.trim(),
+    document.getElementById('vs-why').value.trim() && '💬'+document.getElementById('vs-why').value.trim(),
+    document.getElementById('vs-link').value.trim() && '🔗'+document.getElementById('vs-link').value.trim(),
+  ].filter(Boolean);
+  try {
+    const rid = await getOrCreateResponse();
+    await db.from('venue_suggestions').insert({ response_id: rid, suggestion: parts.join(' · ') });
+    ['vs-name','vs-area','vs-price','vs-why','vs-link'].forEach(id => document.getElementById(id).value = '');
+    showAlert('venue-alert','✅ Venue suggestion submitted!','success');
+  } catch(err) { showAlert('venue-alert','Error: '+err.message,'error'); }
+}
+
+// ---- SONGS ----
+async function loadSongs() {
+  const mkey = currentMonthKey();
+  try {
+    const { data } = await db.from('song_wishes').select('*, responses(name)')
+      .ilike('song', `${mkey}:::%`)
+      .order('id',{ascending:false});
+    const list = document.getElementById('songs-list');
+    if (!data || !data.length) {
+      list.innerHTML = '<p style="color:var(--muted);font-size:0.82rem;text-align:center;padding:1rem">No songs yet for this month — be the first! 🎤</p>';
+      return;
+    }
+    list.innerHTML = data.map((s,i) => {
+      const songDisplay = s.song.replace(`${mkey}:::`, '');
+      return `<div class="song-item">
+        <span class="snum">${i+1}</span>
+        <div><div class="stxt">${songDisplay}</div><div class="swho">Added by ${s.responses?.name||'someone'}</div></div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function addSong() {
+  if (!memberName) { showAlert('song-alert','Enter your singer name in the RSVP tab first!','error'); return; }
+  const input = document.getElementById('song-input');
+  const song = input.value.trim();
+  if (!song) { showAlert('song-alert','Please type a song!','error'); return; }
+  try {
+    const mkey = currentMonthKey();
+    const rid = await getOrCreateResponse();
+    await db.from('song_wishes').insert({ response_id: rid, song: `${mkey}:::${song}` });
+    input.value = '';
+    showAlert('song-alert','🎵 Added to wishlist!','success');
+    await loadSongs();
+  } catch(err) { showAlert('song-alert','Error: '+err.message,'error'); }
+}
+
+// ---- RESULTS ----
+async function loadResults() {
+  const mkey = currentMonthKey();
+  try {
+    const [{ data: responses },{ data: dateVotes },{ data: venueVotes },{ data: suggestions },{ data: songs }] = await Promise.all([
+      db.from('responses').select('*').order('created_at',{ascending:false}),
+      db.from('date_votes').select('*').ilike('date', `${mkey}::%`),
+      db.from('venue_votes').select('*'),
+      db.from('venue_suggestions').select('*, responses(name)'),
+      db.from('song_wishes').select('*, responses(name)').ilike('song', `${mkey}:::%`),
+    ]);
+
+    const uniqueNames = [...new Set((responses||[]).map(r=>r.name))];
+    document.getElementById('stat-responses').textContent = uniqueNames.length;
+    document.getElementById('stat-songs').textContent = songs?.length || 0;
+    document.getElementById('stat-venues').textContent = venueVotes?.length || 0;
+
+    // Date results
+    const dateCounts = {};
+    (dateVotes||[]).filter(v => !v.date.includes('::SESSION')).forEach(v => {
+      const d = v.date.replace(`${mkey}::`, '');
+      dateCounts[d] = (dateCounts[d]||0) + 1;
+    });
+    const maxDate = Math.max(...Object.values(dateCounts), 1);
+    const dateEl = document.getElementById('date-results');
+    if (!Object.keys(dateCounts).length) dateEl.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';
+    else dateEl.innerHTML = Object.entries(dateCounts).sort((a,b)=>b[1]-a[1]).map(([d,c],i) => `
+      <div class="bar-row">
+        <div class="bar-label"><span>${i===0?'🏆 ':''}${d}</span><span>${c} vote${c!==1?'s':''}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(c/maxDate*100)}%"></div></div>
+      </div>`).join('');
+
+    // Session results
+    const sessCounts = {};
+    (dateVotes||[]).filter(v => v.date.includes('::SESSION')).forEach(v => { sessCounts[v.slot]=(sessCounts[v.slot]||0)+1; });
+    const maxSess = Math.max(...Object.values(sessCounts), 1);
+    const sessEl = document.getElementById('session-results');
+    if (!Object.keys(sessCounts).length) sessEl.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';
+    else sessEl.innerHTML = Object.entries(sessCounts).sort((a,b)=>b[1]-a[1]).map(([s,c],i) => `
+      <div class="bar-row">
+        <div class="bar-label"><span>${i===0?'🏆 ':''}${s}</span><span>${c} vote${c!==1?'s':''}</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-fill-a" style="width:${Math.round(c/maxSess*100)}%"></div></div>
+      </div>`).join('');
+
+    // Venue results
+    const venueCounts = {};
+    (venueVotes||[]).forEach(v => { venueCounts[v.venue_name]=(venueCounts[v.venue_name]||0)+1; });
+    const maxVenue = Math.max(...Object.values(venueCounts), 1);
+    const venueEl = document.getElementById('venue-results');
+    if (!Object.keys(venueCounts).length) venueEl.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';
+    else venueEl.innerHTML = Object.entries(venueCounts).sort((a,b)=>b[1]-a[1]).map(([v,c],i) => `
+      <div class="bar-row">
+        <div class="bar-label"><span>${i===0?'🏆 ':''}${v}</span><span>${c} vote${c!==1?'s':''}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(c/maxVenue*100)}%"></div></div>
+      </div>`).join('');
+
+    // Songs
+    const songsEl = document.getElementById('songs-results-list');
+    if (!songs || !songs.length) songsEl.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No songs yet</p>';
+    else songsEl.innerHTML = songs.map((s,i) => {
+      const display = s.song.replace(`${mkey}:::`, '');
+      return `<div class="song-item"><span class="snum">${i+1}</span>
+        <div><div class="stxt">${display}</div><div class="swho">by ${s.responses?.name||'someone'}</div></div>
+      </div>`;
+    }).join('');
+
+    // Who's in
+    const respEl = document.getElementById('responses-list');
+    respEl.innerHTML = uniqueNames.length ? uniqueNames.map(name => `
+      <div class="resp-row">
+        <div class="avatar">${name.slice(0,2).toUpperCase()}</div>
+        <div style="font-weight:500;font-size:0.85rem">${name}</div>
+      </div>`).join('') : '<p style="color:var(--muted);font-size:0.82rem">No responses yet</p>';
+
+    // Suggestions
+    const sugEl = document.getElementById('suggestions-list');
+    const realSugs = (suggestions||[]).filter(s => !s.suggestion.startsWith('DATE:'));
+    sugEl.innerHTML = realSugs.length ? realSugs.map(s => `
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem">
+        💡 <strong>${s.suggestion}</strong> <span style="color:var(--muted)">— ${s.responses?.name||'someone'}</span>
+      </div>`).join('') : '<p style="color:var(--muted);font-size:0.82rem">None yet</p>';
+
+  } catch(err) { console.error(err); }
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['respond','venues','songs','results'][i]===name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'results') loadResults();
+  if (name === 'songs') loadSongs();
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(() => { if (el) el.innerHTML = ''; }, 4000);
+}
+
+// ---- INIT ----
+document.addEventListener('DOMContentLoaded', async () => {
+  if (memberName) document.getElementById('member-name').value = memberName;
+
+  // Load suggested dates from DB
+  try {
+    const { data } = await db.from('venue_suggestions').select('suggestion').ilike('suggestion','DATE:%');
+    if (data) data.forEach(s => {
+      const raw = s.suggestion.replace('DATE:','');
+      const colonIdx = raw.indexOf(':');
+      const mkey = raw.slice(0, colonIdx);
+      const rest = raw.slice(colonIdx+1);
+      const pipeIdx = rest.indexOf('|');
+      const dateStr = pipeIdx > -1 ? rest.slice(0, pipeIdx) : rest;
+      const reason = pipeIdx > -1 ? rest.slice(pipeIdx+1) : '';
+      suggestedDatesCache.push({ monthKey: mkey, date: dateStr, reason });
+    });
+  } catch(e) {}
+
+  updateMonthUI();
+  renderVenues('all');
+  checkSubmitSection();
+});
+</script>
+</body>
+</html>
