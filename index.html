@@ -848,7 +848,7 @@ async function loadMyEntries(){
             <div class="entry-slot">${slot}</div>
             ${note?`<div class="entry-note">💬 ${note}</div>`:''}
           </div>
-          <button class="del-btn" onclick="deleteVote(${v.id},'date')">Delete</button>
+          <button class="del-btn" onclick="deleteVote('${v.id}','date')">Delete</button>
         </div>`;
       }).join('');
     }
@@ -860,7 +860,7 @@ async function loadMyEntries(){
       const display=s.song.replace(`${mkey}:::`, '');
       return `<div class="entry-row">
         <div class="entry-info"><div class="entry-date">${display}</div></div>
-        <button class="del-btn" onclick="deleteVote(${s.id},'song')">Delete</button>
+        <button class="del-btn" onclick="deleteVote('${s.id}','song')">Delete</button>
       </div>`;
     }).join('');}
 
