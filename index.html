@@ -212,17 +212,6 @@ textarea{resize:vertical;min-height:60px;font-size:0.82rem}
       <button class="btn btn-amber btn-sm mt-1" onclick="suggestDate()">+ Add for everyone</button>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">⏰ Which session times work?</div>
-    <div class="session-grid" id="session-grid"></div>
-    <div class="suggest-box purple" style="margin-top:7px">
-      <h3>🕐 Suggest a session</h3>
-      <div class="flex-row mt-1">
-        <input type="text" id="suggest-session-input" placeholder="e.g. Sunday brunch 12–3pm" style="flex:1;min-width:150px">
-        <button class="btn btn-purple btn-sm" onclick="suggestSession()">+ Add</button>
-      </div>
-    </div>
-  </div>
   <div id="submit-section" class="hidden">
     <button class="btn" onclick="submitResponse()" id="submit-btn">✨ Submit my availability</button>
   </div>
@@ -414,7 +403,7 @@ function updateMonthUI(){
   document.getElementById('results-month-label').textContent=lbl;
   document.getElementById('manage-month-label').textContent=lbl;
   selectedDates={};dateNotes={};selectedSessions=new Set();
-  renderDates();renderSessions();loadSongs();checkSubmitSection();
+  renderDates();loadSongs();checkSubmitSection();
 }
 
 function changeMonth(dir){
@@ -516,28 +505,6 @@ async function suggestDate(){
   }catch(err){showAlert('rsvp-alert','Error: '+err.message,'error');}
 }
 
-function renderSessions(){
-  const sessions=[...BASE_SESSIONS,...extraSessions];
-  document.getElementById('session-grid').innerHTML=sessions.map(s=>`
-    <div class="session-card ${selectedSessions.has(s.id)?'selected':''}" id="sess-${s.id}" onclick="toggleSession('${s.id}')">
-      <div class="se">${s.emoji}</div><div class="st">${s.time}</div><div class="sd">${s.desc}</div>
-    </div>`).join('');
-}
-
-function toggleSession(id){
-  const card=document.getElementById('sess-'+id);
-  if(selectedSessions.has(id)){selectedSessions.delete(id);card.classList.remove('selected');}
-  else{selectedSessions.add(id);card.classList.add('selected');}
-}
-
-function suggestSession(){
-  const input=document.getElementById('suggest-session-input');
-  const val=input.value.trim();if(!val)return;
-  const newId='custom_'+Date.now();
-  extraSessions.push({id:newId,emoji:'⭐',time:val,desc:'Suggested'});
-  input.value='';renderSessions();
-  showAlert('rsvp-alert','✅ Session added!','success');
-}
 
 function checkSubmitSection(){
   const hasName=memberName.length>0,hasDates=Object.keys(selectedDates).length>0;
@@ -559,35 +526,83 @@ function saveName(){
 
 async function submitResponse(){
   const btn=document.getElementById('submit-btn');
-  if(!memberName){showAlert('rsvp-alert','Enter your singer name!','error');return;}
-  if(!Object.keys(selectedDates).length){showAlert('rsvp-alert','Select at least one date!','error');return;}
-  btn.innerHTML='<span class="spinner"></span>Saving...';btn.disabled=true;
+
+  if(!memberName){
+    showAlert('rsvp-alert','Enter your singer name!','error');
+    return;
+  }
+
+  if(!Object.keys(selectedDates).length){
+    showAlert('rsvp-alert','Select at least one date!','error');
+    return;
+  }
+
+  btn.innerHTML='<span class="spinner"></span>Saving...';
+  btn.disabled=true;
+
   try{
-    const{data:resp,error:e1}=await db.from('responses').insert({name:memberName}).select().single();
+    const{data:resp,error:e1}=await db
+      .from('responses')
+      .insert({name:memberName})
+      .select()
+      .single();
+
     if(e1)throw e1;
-    const mkey=currentMonthKey(),dateRows=[];
+
+    const mkey=currentMonthKey();
+    const dateRows=[];
+
     for(const[date,slots]of Object.entries(selectedDates)){
       const s=slots.length>0?slots:['Any time'];
       const note=dateNotes[date]||'';
-      s.forEach(sl=>dateRows.push({response_id:resp.id,date:`${mkey}::${date}`,slot:sl+(note?` [Note: ${note}]`:'')}));
-    }
-    if(dateRows.length)await db.from('date_votes').insert(dateRows);
-    if(selectedSessions.size>0){
-      const allSess=[...BASE_SESSIONS,...extraSessions];
-      const sessRows=[...selectedSessions].map(id=>{
-        const s=allSess.find(x=>x.id===id);
-        return{response_id:resp.id,date:`${mkey}::SESSION`,slot:s?s.time:id};
+
+      s.forEach(sl=>{
+        dateRows.push({
+          response_id:resp.id,
+          date:`${mkey}::${date}`,
+          slot:sl+(note?` [Note: ${note}]`:'')
+        });
       });
-      await db.from('date_votes').insert(sessRows);
     }
+
+    if(dateRows.length){
+      const{error:e2}=await db.from('date_votes').insert(dateRows);
+      if(e2)throw e2;
+    }
+
     if(selectedVenues.size>0){
-      await db.from('venue_votes').insert([...selectedVenues].map(v=>({response_id:resp.id,venue_name:v})));
+      const{error:e3}=await db
+        .from('venue_votes')
+        .insert([...selectedVenues].map(v=>({
+          response_id:resp.id,
+          venue_name:v
+        })));
+
+      if(e3)throw e3;
     }
+
     showAlert('rsvp-alert',"🎤 You're on the setlist! See you on the night!",'success');
-    btn.innerHTML='✅ Response saved!';btn.style.background='var(--green)';
+
+    selectedDates={};
+    dateNotes={};
+    selectedVenues=new Set();
+
+    memberName='';
+    localStorage.removeItem('kn_name');
+    document.getElementById('member-name').value='';
+
+    renderDates();
+    renderVenues('all');
+    checkSubmitSection();
+
+    btn.innerHTML='✨ Submit my availability';
+    btn.style.background='var(--pink)';
+    btn.disabled=false;
+
   }catch(err){
     showAlert('rsvp-alert','Something went wrong: '+err.message,'error');
-    btn.innerHTML='✨ Try again';btn.disabled=false;
+    btn.innerHTML='✨ Try again';
+    btn.disabled=false;
   }
 }
 
@@ -696,28 +711,25 @@ async function loadResults(){
       responses:responses||[]
     };
 
-    const uniqueNames=[...new Set((responses||[]).map(r=>r.name))];
+    const uniqueNames=[...new Set((dateVotes||[]).map(v=>v.responses?.name).filter(Boolean))];
 
     document.getElementById('stat-responses').textContent=uniqueNames.length;
     document.getElementById('stat-songs').textContent=songs?.length||0;
     document.getElementById('stat-venues').textContent=venueVotes?.length||0;
 
-    // Best date + session combinations
     const comboCounts={};
 
-    (dateVotes||[])
-      .filter(v=>!v.date.includes('::SESSION'))
-      .forEach(v=>{
-        const d=v.date.replace(`${mkey}::`,'');
-        let slot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
+    (dateVotes||[]).forEach(v=>{
+      if(v.date.includes('::SESSION'))return;
 
-        if(!slot || slot==='Any time'){
-          slot='Any time';
-        }
+      const d=v.date.replace(`${mkey}::`,'');
+      let slot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
 
-        const key=`${d} · ${slot}`;
-        comboCounts[key]=(comboCounts[key]||0)+1;
-      });
+      if(!slot)slot='Any time';
+
+      const key=`${d} · ${slot}`;
+      comboCounts[key]=(comboCounts[key]||0)+1;
+    });
 
     const maxCombo=Math.max(...Object.values(comboCounts),1);
     const dateEl=document.getElementById('date-results');
@@ -728,10 +740,12 @@ async function loadResults(){
       dateEl.innerHTML=Object.entries(comboCounts)
         .sort((a,b)=>b[1]-a[1])
         .map(([combo,c],i)=>{
-          const dateOnly=combo.split(' · ')[0];
+          const parts=combo.split(' · ');
+          const dateOnly=parts[0];
+          const slotOnly=parts.slice(1).join(' · ');
 
           return `
-            <div class="bar-row" onclick="showDateInsight('${dateOnly}')">
+            <div class="bar-row" onclick="showDateInsight('${dateOnly.replace(/'/g,"\'")}','${slotOnly.replace(/'/g,"\'")}')">
               <div class="bar-label">
                 <span>${i===0?'🏆 ':''}${combo}</span>
                 <span>${c} vote${c!==1?'s':''} 👆</span>
@@ -744,7 +758,6 @@ async function loadResults(){
         }).join('');
     }
 
-    // Top venues
     const venueCounts={};
 
     (venueVotes||[]).forEach(v=>{
@@ -772,7 +785,6 @@ async function loadResults(){
         `).join('');
     }
 
-    // Songs
     const songsEl=document.getElementById('songs-results-list');
 
     if(!songs||!songs.length){
@@ -793,7 +805,6 @@ async function loadResults(){
       }).join('');
     }
 
-    // Venue suggestions
     const sugEl=document.getElementById('suggestions-list');
     const realSugs=(suggestions||[]).filter(s=>!s.suggestion.startsWith('DATE:'));
 
@@ -810,6 +821,83 @@ async function loadResults(){
     console.error(err);
   }
 }
+
+// INSIGHT MODAL
+function showDateInsight(dateStr,slotFilter){
+  const mkey=currentMonthKey();
+  const fullDate=`${mkey}::${dateStr}`;
+
+  let votesForDate=resultsCache.dateVotes.filter(v=>v.date===fullDate);
+
+  if(slotFilter){
+    votesForDate=votesForDate.filter(v=>{
+      const cleanSlot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
+      return cleanSlot===slotFilter;
+    });
+  }
+
+  if(!votesForDate.length)return;
+
+  const byName={};
+
+  votesForDate.forEach(v=>{
+    const name=v.responses?.name||'Unknown';
+
+    if(!byName[name]){
+      byName[name]={slots:[],notes:[]};
+    }
+
+    let slot=v.slot;
+    let note='';
+
+    const noteMatch=slot.match(/\[Note: (.*?)\]$/);
+
+    if(noteMatch){
+      note=noteMatch[1];
+      slot=slot.replace(/ \[Note:.*?\]$/,'');
+    }
+
+    if(!byName[name].slots.includes(slot)){
+      byName[name].slots.push(slot);
+    }
+
+    if(note&&!byName[name].notes.includes(note)){
+      byName[name].notes.push(note);
+    }
+  });
+
+  const venuesByName={};
+
+  resultsCache.venueVotes.forEach(v=>{
+    const name=v.responses?.name;
+
+    if(name&&byName[name]){
+      if(!venuesByName[name])venuesByName[name]=[];
+      venuesByName[name].push(v.venue_name);
+    }
+  });
+
+  document.getElementById('modal-title').textContent=
+    `📅 ${dateStr}${slotFilter?' · '+slotFilter:''} — ${Object.keys(byName).length} singer${Object.keys(byName).length!==1?'s':''}`;
+
+  document.getElementById('modal-body').innerHTML=Object.entries(byName).map(([name,data])=>`
+    <div class="insight-singer">
+      <div class="avatar">${name.slice(0,2).toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="insight-name">${name}</div>
+        <div class="insight-slot">⏰ ${data.slots.join(', ')||'Any time'}</div>
+        ${venuesByName[name]?.length?`<div class="insight-venue">📍 Wants: ${venuesByName[name].join(', ')}</div>`:''}
+        ${data.notes.length?`<div class="insight-note">💬 "${data.notes.join(' · ')}"</div>`:''}
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('insight-modal').classList.add('open');
+}
+
+function closeInsightModal(){document.getElementById('insight-modal').classList.remove('open');}
+function closeModal(e){if(e.target===document.getElementById('insight-modal'))closeInsightModal();}
+
 // MANAGE
 async function loadMyEntries(){
   const nameInput=document.getElementById('manage-name').value.trim();
