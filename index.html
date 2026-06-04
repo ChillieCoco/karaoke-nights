@@ -301,10 +301,6 @@ textarea{resize:vertical;min-height:60px;font-size:0.82rem}
     <div id="songs-results-list"></div>
   </div>
   <div class="card">
-    <div class="card-title">👥 Who's in</div>
-    <div id="responses-list"></div>
-  </div>
-  <div class="card">
     <div class="card-title">💡 Venue suggestions</div>
     <div id="suggestions-list"><p style="color:var(--muted);font-size:0.82rem">None yet</p></div>
   </div>
@@ -684,6 +680,7 @@ async function addSong(){
 
 async function loadResults(){
   const mkey=currentMonthKey();
+
   try{
     const[{data:responses},{data:dateVotes},{data:venueVotes},{data:suggestions},{data:songs}]=await Promise.all([
       db.from('responses').select('*').order('created_at',{ascending:false}),
@@ -692,119 +689,127 @@ async function loadResults(){
       db.from('venue_suggestions').select('*, responses(name)'),
       db.from('song_wishes').select('*, responses(name)').ilike('song',`${mkey}:::%`),
     ]);
-    resultsCache={dateVotes:dateVotes||[],venueVotes:venueVotes||[],responses:responses||[]};
+
+    resultsCache={
+      dateVotes:dateVotes||[],
+      venueVotes:venueVotes||[],
+      responses:responses||[]
+    };
+
     const uniqueNames=[...new Set((responses||[]).map(r=>r.name))];
+
     document.getElementById('stat-responses').textContent=uniqueNames.length;
     document.getElementById('stat-songs').textContent=songs?.length||0;
     document.getElementById('stat-venues').textContent=venueVotes?.length||0;
 
     // Best date + session combinations
     const comboCounts={};
-    (dateVotes||[]).filter(v=>!v.date.includes('::SESSION')).forEach(v=>{
-      const d=v.date.replace(`${mkey}::`,'');
-      let slot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
-      const key=`${d} · ${slot || 'Any time'}`;
-      comboCounts[key]=(comboCounts[key]||0)+1;
-    });
+
+    (dateVotes||[])
+      .filter(v=>!v.date.includes('::SESSION'))
+      .forEach(v=>{
+        const d=v.date.replace(`${mkey}::`,'');
+        let slot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
+
+        if(!slot || slot==='Any time'){
+          slot='Any time';
+        }
+
+        const key=`${d} · ${slot}`;
+        comboCounts[key]=(comboCounts[key]||0)+1;
+      });
+
     const maxCombo=Math.max(...Object.values(comboCounts),1);
     const dateEl=document.getElementById('date-results');
-    if(!Object.keys(comboCounts).length){dateEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';}
-    else{
-      dateEl.innerHTML=Object.entries(comboCounts).sort((a,b)=>b[1]-a[1]).map(([combo,c],i)=>{
-        const dateOnly=combo.split(' · ')[0];
-        return `<div class="bar-row" onclick="showDateInsight('${dateOnly}')">
-          <div class="bar-label"><span>${i===0?'🏆 ':''}${combo}</span><span>${c} vote${c!==1?'s':''} 👆</span></div>
-          <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(c/maxCombo*100)}%"></div></div>
-        </div>`;
-      }).join('');
+
+    if(!Object.keys(comboCounts).length){
+      dateEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';
+    }else{
+      dateEl.innerHTML=Object.entries(comboCounts)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([combo,c],i)=>{
+          const dateOnly=combo.split(' · ')[0];
+
+          return `
+            <div class="bar-row" onclick="showDateInsight('${dateOnly}')">
+              <div class="bar-label">
+                <span>${i===0?'🏆 ':''}${combo}</span>
+                <span>${c} vote${c!==1?'s':''} 👆</span>
+              </div>
+              <div class="bar-bg">
+                <div class="bar-fill" style="width:${Math.round(c/maxCombo*100)}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
     }
 
-    // Venue results
+    // Top venues
     const venueCounts={};
-    (venueVotes||[]).forEach(v=>{venueCounts[v.venue_name]=(venueCounts[v.venue_name]||0)+1;});
+
+    (venueVotes||[]).forEach(v=>{
+      venueCounts[v.venue_name]=(venueCounts[v.venue_name]||0)+1;
+    });
+
     const maxVenue=Math.max(...Object.values(venueCounts),1);
     const venueEl=document.getElementById('venue-results');
-    if(!Object.keys(venueCounts).length){venueEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';}
-    else{venueEl.innerHTML=Object.entries(venueCounts).sort((a,b)=>b[1]-a[1]).map(([v,c],i)=>`
-      <div class="bar-row">
-        <div class="bar-label"><span>${i===0?'🏆 ':''}${v}</span><span>${c} vote${c!==1?'s':''}</span></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(c/maxVenue*100)}%"></div></div>
-      </div>`).join('');}
+
+    if(!Object.keys(venueCounts).length){
+      venueEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';
+    }else{
+      venueEl.innerHTML=Object.entries(venueCounts)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([v,c],i)=>`
+          <div class="bar-row">
+            <div class="bar-label">
+              <span>${i===0?'🏆 ':''}${v}</span>
+              <span>${c} vote${c!==1?'s':''}</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:${Math.round(c/maxVenue*100)}%"></div>
+            </div>
+          </div>
+        `).join('');
+    }
 
     // Songs
     const songsEl=document.getElementById('songs-results-list');
-    if(!songs||!songs.length){songsEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No songs yet</p>';}
-    else{songsEl.innerHTML=songs.map((s,i)=>{
-      const display=s.song.replace(`${mkey}:::`, '');
-      return `<div class="song-item"><span class="snum">${i+1}</span>
-        <div><div class="stxt">${display}</div><div class="swho">by ${s.responses?.name||'someone'}</div></div>
-      </div>`;
-    }).join('');}
 
-    // Who's in
-    const respEl=document.getElementById('responses-list');
-    respEl.innerHTML=uniqueNames.length?uniqueNames.map(name=>`
-      <div class="resp-row"><div class="avatar">${name.slice(0,2).toUpperCase()}</div>
-      <div style="font-weight:500;font-size:0.84rem">${name}</div></div>`).join('')
-      :'<p style="color:var(--muted);font-size:0.82rem">No responses yet</p>';
+    if(!songs||!songs.length){
+      songsEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No songs yet</p>';
+    }else{
+      songsEl.innerHTML=songs.map((s,i)=>{
+        const display=s.song.replace(`${mkey}:::`, '');
 
-    // Suggestions
+        return `
+          <div class="song-item">
+            <span class="snum">${i+1}</span>
+            <div>
+              <div class="stxt">${display}</div>
+              <div class="swho">by ${s.responses?.name||'someone'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Venue suggestions
     const sugEl=document.getElementById('suggestions-list');
     const realSugs=(suggestions||[]).filter(s=>!s.suggestion.startsWith('DATE:'));
-    sugEl.innerHTML=realSugs.length?realSugs.map(s=>`
-      <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.79rem">
-        💡 <strong>${s.suggestion}</strong> <span style="color:var(--muted)">— ${s.responses?.name||'someone'}</span>
-      </div>`).join(''):'<p style="color:var(--muted);font-size:0.82rem">None yet</p>';
-  }catch(err){console.error(err);}
+
+    sugEl.innerHTML=realSugs.length
+      ? realSugs.map(s=>`
+          <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.79rem">
+            💡 <strong>${s.suggestion}</strong>
+            <span style="color:var(--muted)">— ${s.responses?.name||'someone'}</span>
+          </div>
+        `).join('')
+      : '<p style="color:var(--muted);font-size:0.82rem">None yet</p>';
+
+  }catch(err){
+    console.error(err);
+  }
 }
-
-// INSIGHT MODAL
-function showDateInsight(dateStr){
-  const mkey=currentMonthKey();
-  const fullDate=`${mkey}::${dateStr}`;
-  const votesForDate=resultsCache.dateVotes.filter(v=>v.date===fullDate);
-  if(!votesForDate.length){return;}
-
-  // Group by singer
-  const byName={};
-  votesForDate.forEach(v=>{
-    const name=v.responses?.name||'Unknown';
-    if(!byName[name])byName[name]={slots:[],notes:[]};
-    let slot=v.slot,note='';
-    const noteMatch=slot.match(/\[Note: (.*?)\]$/);
-    if(noteMatch){note=noteMatch[1];slot=slot.replace(/ \[Note:.*?\]$/,'');}
-    if(!byName[name].slots.includes(slot))byName[name].slots.push(slot);
-    if(note&&!byName[name].notes.includes(note))byName[name].notes.push(note);
-  });
-
-  // Get venue votes for these singers
-  const venuesByName={};
-  resultsCache.venueVotes.forEach(v=>{
-    const name=v.responses?.name;
-    if(name&&byName[name]){
-      if(!venuesByName[name])venuesByName[name]=[];
-      venuesByName[name].push(v.venue_name);
-    }
-  });
-
-  document.getElementById('modal-title').textContent=`📅 ${dateStr} — ${Object.keys(byName).length} singer${Object.keys(byName).length!==1?'s':''}`;
-  document.getElementById('modal-body').innerHTML=Object.entries(byName).map(([name,data])=>`
-    <div class="insight-singer">
-      <div class="avatar">${name.slice(0,2).toUpperCase()}</div>
-      <div style="flex:1">
-        <div class="insight-name">${name}</div>
-        <div class="insight-slot">⏰ ${data.slots.filter(s=>s!=='Any time').join(', ')||'Any time'}</div>
-        ${venuesByName[name]?.length?`<div class="insight-venue">📍 Wants: ${venuesByName[name].join(', ')}</div>`:''}
-        ${data.notes.length?`<div class="insight-note">💬 "${data.notes.join(' · ')}"</div>`:''}
-      </div>
-    </div>`).join('');
-
-  document.getElementById('insight-modal').classList.add('open');
-}
-
-function closeInsightModal(){document.getElementById('insight-modal').classList.remove('open');}
-function closeModal(e){if(e.target===document.getElementById('insight-modal'))closeInsightModal();}
-
 // MANAGE
 async function loadMyEntries(){
   const nameInput=document.getElementById('manage-name').value.trim();
