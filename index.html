@@ -720,17 +720,33 @@ async function loadResults(){
         </div>`).join('');
     }
 
-    // Session results
-    const sessCounts={};
-    (dateVotes||[]).filter(v=>v.date.includes('::SESSION')).forEach(v=>{sessCounts[v.slot]=(sessCounts[v.slot]||0)+1;});
-    const maxSess=Math.max(...Object.values(sessCounts),1);
+    // Date x Session combined breakdown
+    const dateSessionCounts={};
+    (dateVotes||[]).filter(v=>!v.date.includes('::SESSION')).forEach(v=>{
+      const d=v.date.replace(`${mkey}::`,'');
+      let slot=v.slot.replace(/ \[Note:.*?\]$/,'').trim();
+      if(slot==='Any time') return;
+      const key=`${d}  ·  ${slot}`;
+      dateSessionCounts[key]=(dateSessionCounts[key]||0)+1;
+    });
+    (dateVotes||[]).filter(v=>v.date.includes('::SESSION')).forEach(v=>{
+      const key=`⭐ Session pref: ${v.slot}`;
+      dateSessionCounts[key]=(dateSessionCounts[key]||0)+1;
+    });
+    const maxDS=Math.max(...Object.values(dateSessionCounts),1);
     const sessEl=document.getElementById('session-results');
-    if(!Object.keys(sessCounts).length){sessEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No votes yet</p>';}
-    else{sessEl.innerHTML=Object.entries(sessCounts).sort((a,b)=>b[1]-a[1]).map(([s,c],i)=>`
-      <div class="bar-row">
-        <div class="bar-label"><span>${i===0?'🏆 ':''}${s}</span><span>${c} vote${c!==1?'s':''}</span></div>
-        <div class="bar-bg"><div class="bar-fill bar-fill-a" style="width:${Math.round(c/maxSess*100)}%"></div></div>
-      </div>`).join('');}
+    if(!Object.keys(dateSessionCounts).length){
+      sessEl.innerHTML='<p style="color:var(--muted);font-size:0.82rem">No session votes yet — pick slot buttons when selecting dates!</p>';
+    } else {
+      const sorted=Object.entries(dateSessionCounts).sort((a,b)=>b[1]-a[1]);
+      sessEl.innerHTML=sorted.map(([key,c],i)=>{
+        const isPref=key.startsWith('⭐');
+        return `<div class="bar-row">
+          <div class="bar-label"><span>${i===0?'🏆 ':''}${key}</span><span>${c} vote${c!==1?'s':''}</span></div>
+          <div class="bar-bg"><div class="${isPref?'bar-fill-a':'bar-fill'}" style="width:${Math.round(c/maxDS*100)}%"></div></div>
+        </div>`;
+      }).join('');
+    }
 
     // Venue results
     const venueCounts={};
@@ -871,10 +887,12 @@ async function loadMyEntries(){
 async function deleteVote(id,type){
   try{
     const table=type==='song'?'song_wishes':'date_votes';
-    await db.from(table).delete().eq('id',id);
+    const{error}=await db.from(table).delete().eq('id',id);
+    if(error)throw error;
     showAlert('manage-alert','✅ Entry deleted!','success');
     await loadMyEntries();
-  }catch(err){showAlert('manage-alert','Error: '+err.message,'error');}
+    if(document.getElementById('tab-results').classList.contains('active'))await loadResults();
+  }catch(err){showAlert('manage-alert','Error: '+err.message,'error');console.error(err);}
 }
 
 async function deleteAllMyEntries(){
